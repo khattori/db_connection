@@ -74,7 +74,7 @@ defmodule DBConnection do
   require Logger
 
   alias DBConnection.Holder
-  defstruct [:pool_ref, :conn_ref, :conn_mode]
+  defstruct [:pool_ref, :conn_ref, :conn_mode, :savepoint]
 
   defmodule EncodeError do
     defexception [:message]
@@ -797,22 +797,33 @@ defmodule DBConnection do
     {:ok, result} | {:error, reason :: any} when result: var
   def transaction(conn, fun, opts \\ [])
 
-  def transaction(%DBConnection{conn_mode: :transaction} = conn, fun, _opts) do
-    %DBConnection{conn_ref: conn_ref} = conn
-    try do
-      result = fun.(conn)
-      conclude(conn, result)
-    catch
-      :throw, {__MODULE__, ^conn_ref, reason} ->
-        fail(conn)
-        {:error, reason}
-      kind, reason ->
-        stack = System.stacktrace()
-        fail(conn)
-        :erlang.raise(kind, reason, stack)
+  def transaction(%DBConnection{conn_mode: :transaction} = conn, fun, opts) do
+    %DBConnection{conn_ref: conn_ref, savepoint: savepoint} = conn
+    if !savepoint and Keyword.get(opts, :mode) == :savepoint do
+      case begin(conn, &run/4, opts) do
+        {:ok, _} ->
+          run_transaction(%{conn | savepoint: true}, fun, &run/4, opts)
+        {:error, %DBConnection.TransactionError{}} ->
+          {:error, :rollback}
+        {:error, err} ->
+          raise err
+      end
     else
-      result ->
-        {:ok, result}
+      try do
+        result = fun.(conn)
+        conclude(conn, result)
+      catch
+        :throw, {__MODULE__, ^conn_ref, reason} ->
+          fail(conn)
+          {:error, reason}
+        kind, reason ->
+          stack = System.stacktrace()
+          fail(conn)
+          :erlang.raise(kind, reason, stack)
+      else
+        result ->
+          {:ok, result}
+      end
     end
   end
   def transaction(%DBConnection{} = conn, fun, opts) do
