@@ -2,12 +2,12 @@ defmodule DBConnection.Mixfile do
   use Mix.Project
 
   @pools [:connection_pool, :ownership]
-  @version "2.2.2"
+  @version "2.3.0"
 
   def project do
     [app: :db_connection,
      version: @version,
-     elixir: "~> 1.6",
+     elixir: "~> 1.7",
      deps: deps(),
      docs: docs(),
      description: description(),
@@ -43,7 +43,7 @@ defmodule DBConnection.Mixfile do
   end
 
   defp package do
-    %{licenses: ["Apache 2.0"],
+    %{licenses: ["Apache-2.0"],
       maintainers: ["James Fish"],
       links: %{"Github" => "https://github.com/elixir-ecto/db_connection"}}
   end
