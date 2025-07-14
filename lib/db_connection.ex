@@ -1060,7 +1060,7 @@ defmodule DBConnection do
           fail(conn)
           {:error, reason}
         kind, reason ->
-          stack = System.stacktrace()
+          stack = __STACKTRACE__
           fail(conn)
           :erlang.raise(kind, reason, stack)
       else
